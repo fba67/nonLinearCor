@@ -9,8 +9,9 @@ dir.create(file.path("/MMCI/MS/ExpRegulation/work/nonLinearCor/", output.path), 
 buildNN <- function(activation= c("relu", "tanh", "selu", "sigmoid", "linear"), hidden.nodes= c(5, 5)){
   model <- keras_model_sequential()
 
-  for(i in seq(length(hidden.nodes))){
-    model %>% layer_dense(units = hidden.nodes[i], activation = activation, input_shape = c(7))
+  model %>% layer_dense(units = hidden.nodes[1], activation = activation, input_shape = c(7))
+  for(i in seq(2, length(hidden.nodes))){
+    model %>% layer_dense(units = hidden.nodes[i], activation = activation)
   }
 
   model %>% layer_dense(units = 1)
