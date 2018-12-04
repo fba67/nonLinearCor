@@ -53,7 +53,7 @@ summary(model.lin)
 plot(history.lin)
 dev.off()
 
-pdf(paste(output.path, "NN_sigm.pdf", sep= ""))
+pdf(paste(output.path, "/NN_sigm.pdf", sep= ""))
 summary(model.sigm)
 plot(history.sigm)
 dev.off()
