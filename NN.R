@@ -31,9 +31,9 @@ test_X <- X[-shuffle.idx, ]
 train_Y <- X1[shuffle.idx]
 test_Y <- X1[-shuffle.idx]
 
-model.relu <- buildNN(activation= "relu", hidden.nodes= c(20, 10))
-model.lin <- buildNN(activation= "linear", hidden.nodes= c(20, 10))
-model.sigm <- buildNN(activation= "sigmoid", hidden.nodes= c(20, 10))
+model.relu <- buildNN(activation= "relu", hidden.nodes= c(20, 10, 10, 5))
+model.lin <- buildNN(activation= "linear", hidden.nodes= c(20, 10, 10, 5))
+model.sigm <- buildNN(activation= "sigmoid", hidden.nodes= c(20, 10, 10, 5))
 
 history.relu <- model.relu %>% fit(train_X, train_Y, epochs = 200, batch_size = 256, validation_split = 0.2)
 history.lin <- model.lin %>% fit(train_X, train_Y, epochs = 200, batch_size = 256, validation_split = 0.2)
