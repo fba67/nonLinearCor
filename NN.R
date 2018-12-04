@@ -31,6 +31,15 @@ test_X <- X[-shuffle.idx, ]
 train_Y <- X1[shuffle.idx]
 test_Y <- X1[-shuffle.idx]
 
+## Normalize data
+train_X <- scale(train_X, center= T, scale= T)
+test_X <- scale(test_X, center= colMeans(train_X), scale= apply(train_X, 2, FUN= sd))
+
+train_Y <- scale(train_Y, center= T, scale= T)
+test_Y <- scale(test_Y, center= mean(train_Y), scale= sd(train_Y))
+#################
+
+
 model.relu <- buildNN(activation= "relu", hidden.nodes= c(20, 10, 10, 5))
 model.lin <- buildNN(activation= "linear", hidden.nodes= c(20, 10, 10, 5))
 model.sigm <- buildNN(activation= "sigmoid", hidden.nodes= c(20, 10, 10, 5))
