@@ -5,6 +5,8 @@ library(rpgm)
 ##library(np)
 ## hilbert schmidt independence test
 library(dHSIC)
+library(ggplot2)
+library(ggthemes)
 source("simulation.R")
 source("../DPM/R/nldata.R")
 
@@ -110,15 +112,15 @@ for (id1 in 1:(ncol(data)-1))
 
         #model.relu <- buildNN(activation= "relu", hidden.nodes= c(10, 5))
         #model.lin <- buildNN(activation= "linear", hidden.nodes= c(10, 5))
-        model.sigm1 <- buildNN(dim(train_X)[2], activation= "sigmoid", hidden.nodes= c(10, 5))
-        model.sigm2 <- buildNN(dim(train_X)[2], activation= "sigmoid", hidden.nodes= c(10, 5))
+        model.sigm1 <- buildNN(dim(train_X)[2], activation= "relu", hidden.nodes= c(20, 15, 10))
+        model.sigm2 <- buildNN(dim(train_X)[2], activation= "relu", hidden.nodes= c(20, 15, 10))
 
         #history.relu <- model.relu %>% fit(train_X, train_Y, epochs = 200, batch_size = 256, validation_split = 0.2)
         #history.lin <- model.lin %>% fit(train_X, train_Y, epochs = 200, batch_size = 256, validation_split = 0.2)
         # The patience parameter is the amount of epochs to check for improvement.
-		early_stop <- callback_early_stopping(monitor = "val_loss", patience = 50)
-        history.sigm1 <- model.sigm1 %>% fit(train_X, train_Y1, epochs = 800, batch_size = 256, validation_split = 0.2, callbacks = list(early_stop, print_dot_callback))
-        history.sigm2 <- model.sigm2 %>% fit(train_X, train_Y2, epochs = 800, batch_size = 256, validation_split = 0.2, callbacks = list(early_stop, print_dot_callback))
+		early_stop <- callback_early_stopping(monitor = "val_loss", patience = 100)
+        history.sigm1 <- model.sigm1 %>% fit(train_X, train_Y1, epochs = 800, batch_size = 32, validation_split = 0.0, callbacks = list(early_stop, print_dot_callback))
+        history.sigm2 <- model.sigm2 %>% fit(train_X, train_Y2, epochs = 800, batch_size = 32, validation_split = 0.0, callbacks = list(early_stop, print_dot_callback))
 
 
         #model.relu %>% evaluate(test_X, test_Y)
@@ -136,15 +138,6 @@ for (id1 in 1:(ncol(data)-1))
         #plot(history.lin)
         #dev.off()
 
-        pdf(paste(output.path, "/NN_sigm",colnames(data)[id1],"_comb",colnames(data)[id1],"+",colnames(data)[id2],".pdf", sep= ""))
-        summary(model.sigm1)
-        plot(history.sigm1)
-        dev.off()
-        pdf(paste(output.path, "/NN_sigm",colnames(data)[id2],"_comb",colnames(data)[id1],"+",colnames(data)[id2], ".pdf", sep= ""))
-        summary(model.sigm2)
-        plot(history.sigm2)
-        dev.off()
-        
         ## compute residuals
         pred1 <- model.sigm1 %>% predict(test_X)
         residual1 <- test_Y1 - pred1
@@ -153,8 +146,29 @@ for (id1 in 1:(ncol(data)-1))
         statT <- computeKernelTest(residual1, residual2)
         print(statT$p.value)
         res[[length(res)+1]] <- list(id1=id1, id2=id2, HSIT=statT)
+
+
+
+        pdf(paste(output.path, "/NN_sigm",colnames(data)[id1],"_comb",colnames(data)[id1],"+",colnames(data)[id2],".pdf", sep= ""))
+        summary(model.sigm1)
+        print(plot(history.sigm1))
+        print(ggplot(data.frame(id1 = train_Y1, id2 = train_Y2), aes(x=id1, y=id2)) + geom_point() + coord_equal() + theme_tufte())
+        print(ggplot(data.frame(res1 = residual1, res2 = residual2), aes(x=res1, y=res2)) + geom_point() + coord_equal() + theme_tufte())
+        print(ggplot(data.frame(id1 = test_Y1, pred = pred1), aes(x=id1, y=pred)) + geom_point() + coord_equal() + theme_tufte())
+        dev.off()
+        pdf(paste(output.path, "/NN_sigm",colnames(data)[id2],"_comb",colnames(data)[id1],"+",colnames(data)[id2], ".pdf", sep= ""))
+        summary(model.sigm2)
+        print(plot(history.sigm2))
+        print(ggplot(data.frame(id1 = train_Y1, id2 = train_Y2), aes(x=id1, y=id2)) + geom_point() + coord_equal() + theme_tufte())
+        print(ggplot(data.frame(res1 = residual1, res2 = residual2), aes(x=res1, y=res2)) + geom_point() + coord_equal() + theme_tufte())
+        print(ggplot(data.frame(id2 = test_Y2, pred = pred2), aes(x=id2, y=pred)) + geom_point() + coord_equal() + theme_tufte())
+        dev.off()
+        
 	}
 }
+
+
+save(res, file= "res.RData")
 #        }
 #    )
 #    }
