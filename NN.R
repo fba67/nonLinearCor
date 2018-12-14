@@ -82,7 +82,7 @@ for (id1 in 1:(ncol(data)-1))
 	for (id2 in (id1+1):ncol(data))
 	{
         ## split data into test and training, and feature and responses
-        train.cnt <- 800
+        train.cnt <- 1000
         shuffle.idx <- sample(nrow(data))[seq(train.cnt)]
         train_X <- data[shuffle.idx, -c(id1,id2)]
         train_Y1 <- data[shuffle.idx, id1]
@@ -97,7 +97,8 @@ for (id1 in 1:(ncol(data)-1))
         #
         #train_Y <- scale(train_Y, center= T, scale= T)
         #test_Y <- scale(test_Y, center= mean(train_Y), scale= sd(train_Y))
-        normalized_data <- normalizeMinMax(train_X, train_Y1, train_Y2, test_X, test_Y1, test_Y2)
+        #normalized_data <- normalizeMinMax(train_X, train_Y1, train_Y2, test_X, test_Y1, test_Y2)
+        normalized_data <- normalizeMinMax(train_X, train_Y1, train_Y2, test_X, train_Y1, train_Y2)
         train_X <- normalized_data[[1]]
         train_Y1 <- normalized_data[[2]]
         train_Y2 <- normalized_data[[3]]
@@ -119,14 +120,14 @@ for (id1 in 1:(ncol(data)-1))
         #history.lin <- model.lin %>% fit(train_X, train_Y, epochs = 200, batch_size = 256, validation_split = 0.2)
         # The patience parameter is the amount of epochs to check for improvement.
 		early_stop <- callback_early_stopping(monitor = "val_loss", patience = 100)
-        history.sigm1 <- model.sigm1 %>% fit(train_X, train_Y1, epochs = 800, batch_size = 32, validation_split = 0.0, callbacks = list(early_stop, print_dot_callback))
-        history.sigm2 <- model.sigm2 %>% fit(train_X, train_Y2, epochs = 800, batch_size = 32, validation_split = 0.0, callbacks = list(early_stop, print_dot_callback))
+        history.sigm1 <- model.sigm1 %>% fit(train_X, train_Y1, epochs = 800, batch_size = 32, validation_split = 0.2, callbacks = list(early_stop, print_dot_callback))
+        history.sigm2 <- model.sigm2 %>% fit(train_X, train_Y2, epochs = 800, batch_size = 32, validation_split = 0.2, callbacks = list(early_stop, print_dot_callback))
 
 
         #model.relu %>% evaluate(test_X, test_Y)
         #model.lin %>% evaluate(test_X, test_Y)
-        model.sigm1 %>% evaluate(test_X, test_Y1)
-        model.sigm2 %>% evaluate(test_X, test_Y2)
+        #model.sigm1 %>% evaluate(test_X, test_Y1)
+        #model.sigm2 %>% evaluate(test_X, test_Y2)
 
         #pdf(paste(output.path, "/NN_relu.pdf", sep= ""))
         #summary(model.relu)
@@ -139,10 +140,10 @@ for (id1 in 1:(ncol(data)-1))
         #dev.off()
 
         ## compute residuals
-        pred1 <- model.sigm1 %>% predict(test_X)
-        residual1 <- test_Y1 - pred1
-        pred2 <- model.sigm2 %>% predict(test_X)
-        residual2 <- test_Y2 - pred2
+        pred1 <- model.sigm1 %>% predict(train_X)
+        residual1 <- train_Y1 - pred1
+        pred2 <- model.sigm2 %>% predict(train_X)
+        residual2 <- train_Y2 - pred2
         statT <- computeKernelTest(residual1, residual2)
         print(statT$p.value)
         res[[length(res)+1]] <- list(id1=id1, id2=id2, HSIT=statT)
@@ -154,14 +155,14 @@ for (id1 in 1:(ncol(data)-1))
         print(plot(history.sigm1))
         print(ggplot(data.frame(id1 = train_Y1, id2 = train_Y2), aes(x=id1, y=id2)) + geom_point() + coord_equal() + theme_tufte())
         print(ggplot(data.frame(res1 = residual1, res2 = residual2), aes(x=res1, y=res2)) + geom_point() + coord_equal() + theme_tufte())
-        print(ggplot(data.frame(id1 = test_Y1, pred = pred1), aes(x=id1, y=pred)) + geom_point() + coord_equal() + theme_tufte())
+        print(ggplot(data.frame(id1 = train_Y1, pred = pred1), aes(x=id1, y=pred)) + geom_point() + coord_equal() + theme_tufte())
         dev.off()
         pdf(paste(output.path, "/NN_sigm",colnames(data)[id2],"_comb",colnames(data)[id1],"+",colnames(data)[id2], ".pdf", sep= ""))
         summary(model.sigm2)
         print(plot(history.sigm2))
         print(ggplot(data.frame(id1 = train_Y1, id2 = train_Y2), aes(x=id1, y=id2)) + geom_point() + coord_equal() + theme_tufte())
         print(ggplot(data.frame(res1 = residual1, res2 = residual2), aes(x=res1, y=res2)) + geom_point() + coord_equal() + theme_tufte())
-        print(ggplot(data.frame(id2 = test_Y2, pred = pred2), aes(x=id2, y=pred)) + geom_point() + coord_equal() + theme_tufte())
+        print(ggplot(data.frame(id2 = train_Y2, pred = pred2), aes(x=id2, y=pred)) + geom_point() + coord_equal() + theme_tufte())
         dev.off()
         
 	}
@@ -169,7 +170,24 @@ for (id1 in 1:(ncol(data)-1))
 
 
 save(res, file= "res.RData")
+
 #        }
 #    )
 #    }
 #)
+
+sig.thresh <- 0.05
+sigs <- NULL;
+for(i in seq(length(res))){
+  sigs <- c(sigs, res[[i]]$HSIT$p.value <= sig.thresh)
+}
+
+sig.idx <- which(sigs == T)
+
+pdf("signif_data.pdf")
+for(i in seq(length(sig.idx))){
+  a <- data[, res[[sig.idx[i]]]$id1];
+  b <- data[, res[[sig.idx[i]]]$id2];
+  plot(a, b, pch= 20, main= paste(res[[sig.idx[i]]]$id1, res[[sig.idx[i]]]$id2, sep= "..."))
+}
+dev.off()
