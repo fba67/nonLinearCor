@@ -5,9 +5,11 @@ library(rpgm)
 ##library(np)
 ## hilbert schmidt independence test
 library(dHSIC)
+# normality test Henze Zirkler
+library(mvnTest)
 library(ggplot2)
 library(ggthemes)
-library(pheatmap)
+# library(pheatmap)
 source("simulation.R")
 source("../DPM/R/nldata.R")
 
@@ -65,6 +67,11 @@ computeKernelTest <- function(res1, res2)
 	return(dhsic.test(res1, res2, alpha=0.01))
 }
 
+computeNormalTest <- function(data)
+{
+	return(HZ.test(data))
+}
+
 print_dot_callback <- callback_lambda(
   on_epoch_end = function(epoch, logs) {
     if (epoch %% 80 == 0) cat("\n")
@@ -90,8 +97,8 @@ for (id1 in 1:(ncol(data)-1))
 {
 	for (id2 in (id1+1):ncol(data))
 	{
-#for(id1 in 1){
-#  for(id2 in 6){
+# id1 <- 1
+#   id2 <- 6
         ## split data into test and training, and feature and responses
         train.cnt <- 800
         shuffle.idx <- sample(nrow(data))[seq(train.cnt)]
@@ -158,9 +165,12 @@ for (id1 in 1:(ncol(data)-1))
         residual1 <- test_Y1 - pred1
         pred2 <- model.sigm2 %>% predict(test_X)
         residual2 <- test_Y2 - pred2
-        statT <- computeKernelTest(residual1, residual2)
-        print(statT$p.value)
-        res[[length(res)+1]] <- list(id1=id1, id2=id2, HSIT=statT)
+        statN <- computeNormalTest(cbind(residual1,residual2))
+        print(paste("HZ p-value: ", statN@p.value, sep=""))
+        statK <- computeKernelTest(residual1, residual2)
+        print(paste("HSIC p-value: ", statK$p.value, sep=""))
+        #print(paste("gamma test: ", dhsic.test(residual1, residual2, alpha=0.01, method="gamma")$p.value, sep=""))
+        res[[length(res)+1]] <- list(id1=id1, id2=id2, HSIT=statK, HZ=statN)
 
 
 
@@ -172,8 +182,8 @@ for (id1 in 1:(ncol(data)-1))
         print(ggplot(data.frame(id1 = test_Y1, pred = pred1), aes(x=id1, y=pred)) + geom_point() + coord_equal() + theme_tufte())
         print(ggplot(data.frame(x = test_Y2, y= test_Y1, pred = pred1), aes(x=x)) + geom_point(aes(y=y)) + geom_point(aes(y=pred), color="yellow") + coord_equal() + theme_tufte())
 
-        for(i in seq(1, length(sigm1.weights), by= 2))
-          pheatmap(rbind(sigm1.weights[[i]], sigm1.weights[[(i + 1)]]), cluster_cols= F, cluster_rows= F, main= paste("layer", i, "to", (i + 1)))
+        # for(i in seq(1, length(sigm1.weights), by= 2))
+        #   pheatmap(rbind(sigm1.weights[[i]], sigm1.weights[[(i + 1)]]), cluster_cols= F, cluster_rows= F, main= paste("layer", i, "to", (i + 1)))
         dev.off()
         pdf(paste(output.path, "/NN_sigm",colnames(data)[id2],"_comb",colnames(data)[id1],"+",colnames(data)[id2], ".pdf", sep= ""))
         summary(model.sigm2)
@@ -182,8 +192,8 @@ for (id1 in 1:(ncol(data)-1))
         print(ggplot(data.frame(res1 = residual1, res2 = residual2), aes(x=res1, y=res2)) + geom_point() + coord_equal() + theme_tufte())
         print(ggplot(data.frame(id2 = test_Y2, pred = pred2), aes(x=id2, y=pred)) + geom_point() + coord_equal() + theme_tufte())
         print(ggplot(data.frame(x = test_Y1, y= test_Y2, pred = pred2), aes(x=x)) + geom_point(aes(y=y)) + geom_point(aes(y=pred), color="yellow") + coord_equal() + theme_tufte())
-        for(i in seq(1, length(sigm2.weights), by= 2))
-          pheatmap(rbind(sigm2.weights[[i]], sigm2.weights[[(i + 1)]]), cluster_cols= F, cluster_rows= F, main= paste("layer", i, "to", (i + 1)))
+        # for(i in seq(1, length(sigm2.weights), by= 2))
+        #   pheatmap(rbind(sigm2.weights[[i]], sigm2.weights[[(i + 1)]]), cluster_cols= F, cluster_rows= F, main= paste("layer", i, "to", (i + 1)))
         dev.off()
         
 	}
@@ -197,18 +207,18 @@ save(res, file= "res.RData")
 #    }
 #)
 
-sig.thresh <- 0.05
-sigs <- NULL;
-for(i in seq(length(res))){
-  sigs <- c(sigs, res[[i]]$HSIT$p.value <= sig.thresh)
-}
+#sig.thresh <- 0.05
+#sigs <- NULL;
+#for(i in seq(length(res))){
+#  sigs <- c(sigs, res[[i]]$HSIT$p.value <= sig.thresh)
+#}
 
-sig.idx <- which(sigs == T)
+#sig.idx <- which(sigs == T)
 
-pdf("signif_data.pdf")
-for(i in seq(length(sig.idx))){
-  a <- data[, res[[sig.idx[i]]]$id1];
-  b <- data[, res[[sig.idx[i]]]$id2];
-  plot(a, b, pch= 20, main= paste(res[[sig.idx[i]]]$id1, res[[sig.idx[i]]]$id2, sep= "..."))
-}
-dev.off()
+#pdf("signif_data.pdf")
+#for(i in seq(length(sig.idx))){
+#  a <- data[, res[[sig.idx[i]]]$id1];
+#  b <- data[, res[[sig.idx[i]]]$id2];
+#  plot(a, b, pch= 20, main= paste(res[[sig.idx[i]]]$id1, res[[sig.idx[i]]]$id2, sep= "..."))
+#}
+#dev.off()
