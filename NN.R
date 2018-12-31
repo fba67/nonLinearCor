@@ -1,4 +1,6 @@
 library(keras)
+# multivariate normal
+library(MASS)
 ## for colMins, colMaxs
 library(rpgm)
 ## for entropy based stat test
@@ -6,7 +8,7 @@ library(rpgm)
 ## hilbert schmidt independence test
 library(dHSIC)
 # normality test Henze Zirkler
-library(mvnTest)
+#library(mvnTest)
 library(ggplot2)
 library(ggthemes)
 # library(pheatmap)
@@ -67,9 +69,28 @@ computeKernelTest <- function(res1, res2)
 	return(dhsic.test(res1, res2, alpha=0.01))
 }
 
-computeNormalTest <- function(data)
+## Compute statistical test for normality (Henze Zirkler)
+#computeNormalTest <- function(data)
+#{
+#	return(HZ.test(data))
+#}
+computeNormalTest <- function(res1, res2, n=1000)
 {
-	return(HZ.test(data))
+	# HS norm for actual sample
+	resHSNorm <- dhsic(res1, res2)$dHSIC
+	# Set parameters for bivariate normal, use sample variance
+	covMat <- matrix(c(var(res1),0,0,var(res2)),nrow=2)
+	mu <- c(0,0)
+	# Compute HS norm of permutations of normal
+	normalHSNorm <- sapply(1:n, function (x)
+								{
+									samp <- mvrnorm(n=length(res1), mu, covMat)
+									return(dhsic(samp, matrix.input = TRUE)$dHSIC)
+								}
+						   
+						   )
+	return(sum(normalHSNorm > resHSNorm) / n)
+	
 }
 
 print_dot_callback <- callback_lambda(
@@ -165,12 +186,12 @@ for (id1 in 1:(ncol(data)-1))
         residual1 <- test_Y1 - pred1
         pred2 <- model.sigm2 %>% predict(test_X)
         residual2 <- test_Y2 - pred2
-        statN <- computeNormalTest(cbind(residual1,residual2))
-        print(paste("HZ p-value: ", statN@p.value, sep=""))
+        statN <- computeNormalTest(residual1,residual2)
+        print(paste("Normal permutation with HS norm p-value: ", statN, sep=""))
         statK <- computeKernelTest(residual1, residual2)
-        print(paste("HSIC p-value: ", statK$p.value, sep=""))
+        print(paste("HSIC test p-value: ", statK$p.value, sep=""))
         #print(paste("gamma test: ", dhsic.test(residual1, residual2, alpha=0.01, method="gamma")$p.value, sep=""))
-        res[[length(res)+1]] <- list(id1=id1, id2=id2, HSIT=statK, HZ=statN)
+        res[[length(res)+1]] <- list(id1=id1, id2=id2, HSIT=statK, HSNORM=statN)
 
 
 
