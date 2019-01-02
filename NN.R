@@ -11,7 +11,7 @@ library(dHSIC)
 #library(mvnTest)
 library(ggplot2)
 library(ggthemes)
-# library(pheatmap)
+library(pheatmap)
 source("simulation.R")
 source("../DPM/R/nldata.R")
 
@@ -114,12 +114,14 @@ gs <- dataplus$gs
 res <- list()
 #sapply(1:(ncol(data)-1), function(id1) {
 #    sapply((id1+1):ncol(data), function(id2) {
-for (id1 in 1:(ncol(data)-1))
+#for (id1 in 1:(ncol(data)-1))
+#{
+#	for (id2 in (id1+1):ncol(data))
+#	{
+for (id1 in 1)
 {
-	for (id2 in (id1+1):ncol(data))
-	{
-# id1 <- 1
-#   id2 <- 6
+   for (id2 in 3)
+   {
         ## split data into test and training, and feature and responses
         train.cnt <- 800
         shuffle.idx <- sample(nrow(data))[seq(train.cnt)]
@@ -152,8 +154,8 @@ for (id1 in 1:(ncol(data)-1))
 
         #model.relu <- buildNN(activation= "relu", hidden.nodes= c(10, 5))
         #model.lin <- buildNN(activation= "linear", hidden.nodes= c(10, 5))
-        model.sigm1 <- buildNN(dim(train_X)[2], activation= "tanh", hidden.nodes= c(20, 15, 10))
-        model.sigm2 <- buildNN(dim(train_X)[2], activation= "tanh", hidden.nodes= c(20, 15, 10))
+        model.sigm1 <- buildNN(dim(train_X)[2], activation= "tanh", hidden.nodes= c(10, 5))
+        model.sigm2 <- buildNN(dim(train_X)[2], activation= "tanh", hidden.nodes= c(10, 5))
 
         #history.relu <- model.relu %>% fit(train_X, train_Y, epochs = 200, batch_size = 256, validation_split = 0.2)
         #history.lin <- model.lin %>% fit(train_X, train_Y, epochs = 200, batch_size = 256, validation_split = 0.2)
@@ -191,7 +193,7 @@ for (id1 in 1:(ncol(data)-1))
         statK <- computeKernelTest(residual1, residual2)
         print(paste("HSIC test p-value: ", statK$p.value, sep=""))
         #print(paste("gamma test: ", dhsic.test(residual1, residual2, alpha=0.01, method="gamma")$p.value, sep=""))
-        res[[length(res)+1]] <- list(id1=id1, id2=id2, HSIT=statK, HSNORM=statN)
+        res[[length(res)+1]] <- list(id1=id1, id2=id2, HSIT=statK, HSNORM=statN, nn1=model.sigm1, nn2=model.sigm2)
 
 
 
@@ -200,21 +202,26 @@ for (id1 in 1:(ncol(data)-1))
         print(plot(history.sigm1))
         print(ggplot(data.frame(id1 = test_Y1, id2 = test_Y2), aes(x=id1, y=id2)) + geom_point() + coord_equal() + theme_tufte())
         print(ggplot(data.frame(res1 = residual1, res2 = residual2), aes(x=res1, y=res2)) + geom_point() + coord_equal() + theme_tufte())
+        print(ggplot(data.frame(p1 = pred1, p2 = pred2), aes(x=p1, y=p2)) + geom_point() + coord_equal() + theme_tufte())
         print(ggplot(data.frame(id1 = test_Y1, pred = pred1), aes(x=id1, y=pred)) + geom_point() + coord_equal() + theme_tufte())
-        print(ggplot(data.frame(x = test_Y2, y= test_Y1, pred = pred1), aes(x=x)) + geom_point(aes(y=y)) + geom_point(aes(y=pred), color="yellow") + coord_equal() + theme_tufte())
+        print(ggplot(data.frame(Number=1:length(pred1),Prediction=pred1), aes(x=Number, y=Prediction)) + geom_point() + coord_equal() + theme_tufte())
+        # TODO: fix this plot. Our prediction is based on a matrix of features but x in plot is the one left out variable - that's why it is wrong.
+        #print(ggplot(data.frame(x = test_Y2, y= test_Y1, pred = pred1), aes(x=x)) + geom_point(aes(y=y)) + geom_point(aes(y=pred), color="yellow") + coord_equal() + theme_tufte())
 
-        # for(i in seq(1, length(sigm1.weights), by= 2))
-        #   pheatmap(rbind(sigm1.weights[[i]], sigm1.weights[[(i + 1)]]), cluster_cols= F, cluster_rows= F, main= paste("layer", i, "to", (i + 1)))
+        for(i in seq(1, length(sigm1.weights), by= 2))
+           pheatmap(rbind(sigm1.weights[[i]], sigm1.weights[[(i + 1)]]), cluster_cols= F, cluster_rows= F, main= paste("layer", i/2, "to", (i/2 + 1)))
         dev.off()
         pdf(paste(output.path, "/NN_sigm",colnames(data)[id2],"_comb",colnames(data)[id1],"+",colnames(data)[id2], ".pdf", sep= ""))
         summary(model.sigm2)
         print(plot(history.sigm2))
         print(ggplot(data.frame(id1 = test_Y1, id2 = test_Y2), aes(x=id1, y=id2)) + geom_point() + coord_equal() + theme_tufte())
         print(ggplot(data.frame(res1 = residual1, res2 = residual2), aes(x=res1, y=res2)) + geom_point() + coord_equal() + theme_tufte())
+        print(ggplot(data.frame(p1 = pred1, p2 = pred2), aes(x=p1, y=p2)) + geom_point() + coord_equal() + theme_tufte())
         print(ggplot(data.frame(id2 = test_Y2, pred = pred2), aes(x=id2, y=pred)) + geom_point() + coord_equal() + theme_tufte())
-        print(ggplot(data.frame(x = test_Y1, y= test_Y2, pred = pred2), aes(x=x)) + geom_point(aes(y=y)) + geom_point(aes(y=pred), color="yellow") + coord_equal() + theme_tufte())
-        # for(i in seq(1, length(sigm2.weights), by= 2))
-        #   pheatmap(rbind(sigm2.weights[[i]], sigm2.weights[[(i + 1)]]), cluster_cols= F, cluster_rows= F, main= paste("layer", i, "to", (i + 1)))
+        print(ggplot(data.frame(Number=1:length(pred2),Prediction=pred2), aes(x=Number, y=Prediction)) + geom_point() + coord_equal() + theme_tufte())
+        #print(ggplot(data.frame(x = test_Y1, y= test_Y2, pred = pred2), aes(x=x)) + geom_point(aes(y=y)) + geom_point(aes(y=pred), color="yellow") + coord_equal() + theme_tufte())
+        for(i in seq(1, length(sigm2.weights), by= 2))
+           pheatmap(rbind(sigm2.weights[[i]], sigm2.weights[[(i + 1)]]), cluster_cols= F, cluster_rows= F, main= paste("layer", i/2, "to", (i/2 + 1)))
         dev.off()
         
 	}
